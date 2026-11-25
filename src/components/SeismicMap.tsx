@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Crosshair, Globe, Layers, Navigation } from 'lucide-react';
+import { TRANSLATIONS, type Language } from '../i18n/translations';
 import type { SeismicEvent } from '../types/seismic';
 
 interface SeismicMapProps {
@@ -10,6 +11,7 @@ interface SeismicMapProps {
   onSelectEvent: (ev: SeismicEvent) => void;
   userCoords: { lat: number; lon: number } | null;
   onRequestLocation: () => void;
+  lang?: Language;
 }
 
 type MapStyle = 'dark' | 'topo' | 'satellite' | 'osm';
@@ -25,20 +27,15 @@ function calcDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number):
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function mmiLabel(mmi: number): string {
-  if (mmi >= 7) return 'Puternic / Distrugător';
-  if (mmi >= 5) return 'Moderat-Puternic';
-  if (mmi >= 3.5) return 'Ușor-Moderat';
-  return 'Slab / Instrumental';
-}
-
 export const SeismicMap: React.FC<SeismicMapProps> = ({
   events,
   selectedEvent,
   onSelectEvent,
   userCoords,
   onRequestLocation,
+  lang = 'ro',
 }) => {
+  const t = TRANSLATIONS[lang];
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const baseLayerRef = useRef<L.LayerGroup | null>(null);
@@ -48,6 +45,13 @@ export const SeismicMap: React.FC<SeismicMapProps> = ({
   const [showIntensityRings, setShowIntensityRings] = useState(true);
   const [regionPreset, setRegionPreset] = useState<'romania' | 'europe' | 'global'>('romania');
   const [mapStyle, setMapStyle] = useState<MapStyle>('dark');
+
+  const getMmiLabel = (mmi: number): string => {
+    if (mmi >= 7) return t.map.mmiStrong;
+    if (mmi >= 5) return t.map.mmiModStrong;
+    if (mmi >= 3.5) return t.map.mmiLightMod;
+    return t.map.mmiWeak;
+  };
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
@@ -78,7 +82,6 @@ export const SeismicMap: React.FC<SeismicMapProps> = ({
     baseGroup.clearLayers();
 
     if (mapStyle === 'dark') {
-      // Esri World Dark Gray Canvas + Reference labels (100% keyless)
       L.tileLayer(
         'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
         {
@@ -162,7 +165,7 @@ export const SeismicMap: React.FC<SeismicMapProps> = ({
         fillOpacity: ev.magnitude >= 5.0 ? 0.72 : 0.55,
       });
 
-      const timeStr = new Date(ev.timestamp).toLocaleTimeString('ro-RO', {
+      const timeStr = new Date(ev.timestamp).toLocaleTimeString(t.locale, {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
@@ -171,7 +174,7 @@ export const SeismicMap: React.FC<SeismicMapProps> = ({
       marker.bindTooltip(
         `<div style="font-family: 'JetBrains Mono', monospace; font-size: 11px;">
           <strong>M ${ev.magnitude.toFixed(1)}</strong> · ${ev.place}<br/>
-          Adâncime: ${ev.depthKm} km · MMI ${ev.mmi.toFixed(1)} · ${timeStr}
+          ${t.map.popupDepth}: ${ev.depthKm} km · MMI ${ev.mmi.toFixed(1)} · ${timeStr}
         </div>`,
         { direction: 'top', opacity: 0.95 }
       );
@@ -182,7 +185,7 @@ export const SeismicMap: React.FC<SeismicMapProps> = ({
 
       marker.addTo(markersLayer);
     }
-  }, [events, selectedEvent, onSelectEvent]);
+  }, [events, selectedEvent, onSelectEvent, t.locale, t.map.popupDepth]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -229,14 +232,16 @@ export const SeismicMap: React.FC<SeismicMapProps> = ({
       fillColor: '#10B981',
       fillOpacity: 0.9,
     })
-      .bindTooltip('Poziția dvs. GPS', { direction: 'top' })
+      .bindTooltip(t.map.popupYou, { direction: 'top' })
       .addTo(userLayer);
-  }, [userCoords]);
+  }, [userCoords, t.map.popupYou]);
 
   const distanceToSelected = useMemo(() => {
     if (!selectedEvent || !userCoords) return null;
     return calcDistanceKm(userCoords.lat, userCoords.lon, selectedEvent.lat, selectedEvent.lon);
   }, [selectedEvent, userCoords]);
+
+  const isEn = lang === 'en';
 
   return (
     <div className="flex flex-col rounded-xl border border-slate-800 bg-[#0B111C] overflow-hidden">
@@ -253,7 +258,7 @@ export const SeismicMap: React.FC<SeismicMapProps> = ({
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              România / Vrancea
+              {isEn ? 'Romania / Vrancea' : 'România / Vrancea'}
             </button>
             <button
               type="button"
@@ -264,7 +269,7 @@ export const SeismicMap: React.FC<SeismicMapProps> = ({
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              Europa
+              {isEn ? 'Europe' : 'Europa'}
             </button>
             <button
               type="button"
@@ -284,9 +289,9 @@ export const SeismicMap: React.FC<SeismicMapProps> = ({
           <div className="flex items-center gap-1 rounded-lg bg-[#070B12] p-1 border border-slate-800">
             {(
               [
-                { id: 'dark', label: 'Întunecat' },
-                { id: 'topo', label: 'Topografic' },
-                { id: 'satellite', label: 'Satelit' },
+                { id: 'dark', label: t.map.layerDark },
+                { id: 'topo', label: t.map.layerTopo },
+                { id: 'satellite', label: t.map.layerSat },
                 { id: 'osm', label: 'OSM' },
               ] as const
             ).map((style) => (
@@ -317,7 +322,7 @@ export const SeismicMap: React.FC<SeismicMapProps> = ({
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            Inele Intensitate &amp; Unde P/S
+            {isEn ? 'Intensity Rings & P/S Waves' : 'Inele Intensitate & Unde P/S'}
           </button>
 
           <button
@@ -326,7 +331,7 @@ export const SeismicMap: React.FC<SeismicMapProps> = ({
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-[#070B12] px-3 py-1.5 text-xs font-medium text-slate-300 hover:border-emerald-500/40 hover:text-emerald-300 transition-colors min-h-[36px] whitespace-nowrap"
           >
             <Navigation className="w-3.5 h-3.5 text-emerald-400" />
-            {userCoords ? 'GPS Activ' : 'Localizare GPS'}
+            {userCoords ? (isEn ? 'GPS Active' : 'GPS Activ') : t.map.locateGps}
           </button>
         </div>
       </div>
@@ -370,32 +375,36 @@ export const SeismicMap: React.FC<SeismicMapProps> = ({
 
             <div className="mt-2.5 grid grid-cols-3 gap-2 border-t border-slate-800/80 pt-2.5 text-xs font-mono tabular-nums">
               <div>
-                <div className="text-slate-500">Adâncime</div>
+                <div className="text-slate-500">{t.map.depthLabel}</div>
                 <div className="text-slate-200 font-semibold">{selectedEvent.depthKm} km</div>
               </div>
               <div>
-                <div className="text-slate-500">Intensitate</div>
+                <div className="text-slate-500">{t.map.mmiLabel}</div>
                 <div className="text-slate-200 font-semibold">
                   MMI {selectedEvent.mmi.toFixed(1)}
                 </div>
               </div>
               <div>
                 <div className="text-slate-500">
-                  {distanceToSelected !== null ? 'Distanță GPS' : 'Regim'}
+                  {distanceToSelected !== null ? t.map.distanceLabel : isEn ? 'Level' : 'Regim'}
                 </div>
                 <div className="text-slate-200 font-semibold">
                   {distanceToSelected !== null
                     ? `${Math.round(distanceToSelected)} km`
-                    : mmiLabel(selectedEvent.mmi).split(' ')[0]}
+                    : getMmiLabel(selectedEvent.mmi).split(' ')[0]}
                 </div>
               </div>
             </div>
 
             {distanceToSelected !== null && (
               <div className="mt-2 border-t border-slate-800/80 pt-2 flex items-center justify-between text-[11px] font-mono text-slate-300 tabular-nums">
-                <span>Undă P (~6 km/s): ~{Math.round(distanceToSelected / 6)}s</span>
+                <span>
+                  {isEn ? 'P-Wave (~6 km/s)' : 'Undă P (~6 km/s)'}: ~{Math.round(distanceToSelected / 6)}s
+                </span>
                 <span aria-hidden="true">·</span>
-                <span>Undă S (~3.5 km/s): ~{Math.round(distanceToSelected / 3.5)}s</span>
+                <span>
+                  {isEn ? 'S-Wave (~3.5 km/s)' : 'Undă S (~3.5 km/s)'}: ~{Math.round(distanceToSelected / 3.5)}s
+                </span>
               </div>
             )}
           </div>
@@ -407,19 +416,20 @@ export const SeismicMap: React.FC<SeismicMapProps> = ({
         <div className="flex flex-wrap items-center gap-4">
           <span className="inline-flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
-            <span>M ≥ 5.0 Richter (Puternic)</span>
+            <span>{t.map.legendStrong}</span>
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
-            <span>M 4.0–4.9 (Moderat)</span>
+            <span>{t.map.legendModerate}</span>
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-cyan-500" />
-            <span>M 3.0–3.9 (Prag Alarmă)</span>
+            <span>{t.map.legendThreshold}</span>
           </span>
         </div>
         <span className="font-mono tabular-nums text-slate-500">
-          {events.filter((e) => e.magnitude >= 3.0).length} epicentre M ≥ 3.0 · Hartă fără API Key
+          {events.filter((e) => e.magnitude >= 3.0).length}{' '}
+          {isEn ? 'epicenters M ≥ 3.0 · Keyless Map' : 'epicentre M ≥ 3.0 · Hartă fără API Key'}
         </span>
       </div>
     </div>

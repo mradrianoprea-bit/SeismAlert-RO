@@ -27,3 +27,9 @@ Acest repository include workflow-ul **`.github/workflows/build-mobile.yml`**:
 ## Instalare directă pe iPhone / Android fără compilare (PWA)
 - **iPhone (Safari)**: Deschide URL-ul aplicației → butonul **Share** → **Add to Home Screen**.
 - **Android (Chrome)**: Deschide URL-ul aplicației → **Instalează Aplicația**.
+
+---
+
+## English Overview
+**SeismAlert RO** is a bilingual (RO / EN) real-time earthquake monitoring and early-warning platform for **M ≥ 3.0 Richter** events aggregating 6 official geological feeds (USGS, EMSC, Romania / INFP via EMSC, GFZ Potsdam, INGV Italy, GeoNet NZ), with Romania-only sound alarms (distinct civil-defense siren `ro_major_quake_siren.wav` for Romania **M > 5.5**), keyless Esri/OSM epicenter map, offline 72h safety plan + 3.1 kHz SOS whistle, WebSocket rescue chat, and automated GitHub Actions builds (`.github/workflows/build-mobile.yml`) for **Android APK** and **iOS IPA** without requiring a committed `package-lock.json`.
+

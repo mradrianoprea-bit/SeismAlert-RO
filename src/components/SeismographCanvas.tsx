@@ -1,15 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Activity, Smartphone } from 'lucide-react';
+import { TRANSLATIONS, type Language } from '../i18n/translations';
 
 interface SeismographCanvasProps {
   activeAlarmMagnitude: number | null;
   onLocalTremorDetected?: (peakG: number) => void;
+  lang?: Language;
 }
 
 export const SeismographCanvas: React.FC<SeismographCanvasProps> = ({
   activeAlarmMagnitude,
   onLocalTremorDetected,
+  lang = 'ro',
 }) => {
+  const t = TRANSLATIONS[lang];
+  const isEn = lang === 'en';
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const samplesRef = useRef<number[]>(new Array(180).fill(0));
   const [memsEnabled, setMemsEnabled] = useState(false);
@@ -56,7 +61,6 @@ export const SeismographCanvas: React.FC<SeismographCanvasProps> = ({
       const y = acc.y || 0;
       const z = acc.z || 0;
       const mag = Math.sqrt(x * x + y * y + z * z);
-      // Normalize Earth gravity (~9.81) if accelerationIncludingGravity is used
       const delta = e.acceleration ? mag : Math.abs(mag - 9.81);
       memsDeltaRef.current = Math.min(4.0, delta / 9.81);
       if (memsDeltaRef.current > 0.35 && onLocalTremorDetected) {
@@ -91,7 +95,6 @@ export const SeismographCanvas: React.FC<SeismographCanvasProps> = ({
       const h = rect.height || 130;
       const midY = h / 2;
 
-      // Compute next sample: real MEMS reading if active, else baseline micro-noise or active alarm P/S wave
       let sample = 0;
       if (memsEnabled) {
         sample = memsDeltaRef.current * (Math.sin(phase * 3.1) > 0 ? 1 : -1);
@@ -116,11 +119,9 @@ export const SeismographCanvas: React.FC<SeismographCanvasProps> = ({
         setPeakG(Number((maxAbs * 0.12).toFixed(4)));
       }
 
-      // Clear background
       ctx.fillStyle = '#070B12';
       ctx.fillRect(0, 0, w, h);
 
-      // Subtle coordinate grid
       ctx.strokeStyle = 'rgba(30, 41, 59, 0.7)';
       ctx.lineWidth = 1;
       for (let gx = 0; gx < w; gx += 48) {
@@ -134,7 +135,6 @@ export const SeismographCanvas: React.FC<SeismographCanvasProps> = ({
       ctx.lineTo(w, midY);
       ctx.stroke();
 
-      // Waveform line
       const isAlarm = Boolean(activeAlarmMagnitude && activeAlarmMagnitude >= 3.0);
       ctx.strokeStyle = isAlarm ? '#EF4444' : memsEnabled ? '#10B981' : '#06B6D4';
       ctx.lineWidth = isAlarm ? 2 : 1.5;
@@ -160,16 +160,18 @@ export const SeismographCanvas: React.FC<SeismographCanvasProps> = ({
         <div>
           <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
             <Activity className="w-3.5 h-3.5 text-cyan-400" />
-            <span>SEISMOGRAMĂ TRIAXIALĂ &amp; SENZOR P-WAVE</span>
+            <span>
+              {isEn
+                ? 'TRIAXIAL SEISMOGRAPH & P-WAVE SENSOR'
+                : 'SEISMOGRAMĂ TRIAXIALĂ & SENZOR P-WAVE'}
+            </span>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Prag declanșare alarmă: 3.0 grade Richter · Monitorizare continuă
-          </p>
+          <p className="text-xs text-slate-500 mt-0.5">{t.seismograph.subtitle}</p>
         </div>
 
         <div className="flex items-center gap-4">
           <div className="text-right font-mono tabular-nums">
-            <div className="text-[11px] text-slate-500">Vârf PGA</div>
+            <div className="text-[11px] text-slate-500">{isEn ? 'Peak PGA' : 'Vârf PGA'}</div>
             <div className="text-sm font-semibold text-slate-100">{peakG.toFixed(4)} g</div>
           </div>
 
@@ -185,10 +187,12 @@ export const SeismographCanvas: React.FC<SeismographCanvasProps> = ({
           >
             <Smartphone className="w-3.5 h-3.5" />
             {!memsSupported
-              ? 'MEMS Indisponibil'
+              ? isEn
+                ? 'MEMS Unavailable'
+                : 'MEMS Indisponibil'
               : memsEnabled
-              ? 'Accelerometru Telefon Activ'
-              : 'Activează Senzor Telefon'}
+              ? t.seismograph.sensorActive
+              : t.seismograph.armAccelerometer}
           </button>
         </div>
       </div>

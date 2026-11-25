@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       app_url:
-        description: 'URL-ul public al serverului SeismAlert RO (pentru aplicația mobilă)'
+        description: 'Public URL of the SeismAlert RO server (for Android & iOS apps)'
         required: false
         default: 'https://ais-pre-2evfwmdwwoetsu73uknkcb-967278542405.europe-west2.run.app'
   push:
@@ -19,10 +19,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run build
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: TypeScript Lint
+        run: npm run lint
+      - name: Production Web Build
+        run: npm run build
 
   build-android-apk:
     name: Build Signed Android APK
@@ -33,7 +35,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -41,13 +42,12 @@ jobs:
       - uses: android-actions/setup-android@v3
       - name: Install dependencies & extract Capacitor mobile kit
         run: |
-          npm ci
-          APP_URL="${{ inputs.app_url || vars.APP_URL || 'https://ais-pre-2evfwmdwwoetsu73uknkcb-967278542405.europe-west2.run.app' }}"
+          npm install --no-audit --no-fund
           npx tsx -e "
             import fs from 'fs';
             import path from 'path';
             import { buildAndroidKitZip } from './src/utils/androidKit.ts';
-            const zip = buildAndroidKitZip(process.env.APP_URL);
+            const zip = buildAndroidKitZip(process.env.APP_URL || 'https://ais-pre-2evfwmdwwoetsu73uknkcb-967278542405.europe-west2.run.app');
             const outDir = 'mobile-kit-out';
             fs.mkdirSync(outDir, { recursive: true });
             for (const [relPath, entry] of Object.entries(zip.files)) {
@@ -83,15 +83,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
       - name: Install dependencies & extract Capacitor mobile kit
         run: |
-          npm ci
+          npm install --no-audit --no-fund
           npx tsx -e "
             import fs from 'fs';
             import path from 'path';
             import { buildAndroidKitZip } from './src/utils/androidKit.ts';
-            const zip = buildAndroidKitZip(process.env.APP_URL);
+            const zip = buildAndroidKitZip(process.env.APP_URL || 'https://ais-pre-2evfwmdwwoetsu73uknkcb-967278542405.europe-west2.run.app');
             const outDir = 'mobile-kit-out';
             fs.mkdirSync(outDir, { recursive: true });
             for (const [relPath, entry] of Object.entries(zip.files)) {

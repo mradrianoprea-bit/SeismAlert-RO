@@ -29,6 +29,7 @@ import {
   unlockAudioContext,
   unlockAudioSync,
 } from './utils/alarmAudio';
+import { TRANSLATIONS, type Language } from './i18n/translations';
 import type {
   PushPreference,
   RescueChannelId,
@@ -64,6 +65,31 @@ const DEFAULT_PREFS: PushPreference = {
 
 export default function App() {
   const isOnline = useOnlineStatus();
+  const [lang, setLang] = useState<Language>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const qLang = params.get('lang');
+      if (qLang === 'en' || qLang === 'ro') return qLang;
+      const saved = localStorage.getItem('seismalert_lang');
+      if (saved === 'en' || saved === 'ro') return saved;
+    } catch {
+      // ignore
+    }
+    return 'ro';
+  });
+  const t = TRANSLATIONS[lang];
+  const langRef = useRef<Language>(lang);
+  langRef.current = lang;
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('seismalert_lang', lang);
+    } catch {
+      // ignore
+    }
+    document.documentElement.lang = lang;
+  }, [lang]);
+
   const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab');
@@ -82,8 +108,11 @@ export default function App() {
   const [events, setEvents] = useState<SeismicEvent[]>(() => {
     try {
       const cached = localStorage.getItem('seismalert_cached_events');
-      const parsed = cached ? (JSON.parse(cached) as SeismicEvent[]) : [];
-      return parsed.filter((e) => e.magnitude >= 3.0);
+      const parsed = cached ? JSON.parse(cached) : [];
+      if (!Array.isArray(parsed)) return [];
+      return (parsed as SeismicEvent[]).filter(
+        (e) => e && typeof e.magnitude === 'number' && e.magnitude >= 3.0
+      );
     } catch {
       return [];
     }
@@ -100,7 +129,10 @@ export default function App() {
   const [preferences, setPreferences] = useState<PushPreference>(() => {
     try {
       const saved = localStorage.getItem('seismalert_push_prefs');
-      return saved ? { ...DEFAULT_PREFS, ...(JSON.parse(saved) as PushPreference) } : DEFAULT_PREFS;
+      const parsed = saved ? JSON.parse(saved) : null;
+      return parsed && typeof parsed === 'object'
+        ? { ...DEFAULT_PREFS, ...(parsed as PushPreference) }
+        : DEFAULT_PREFS;
     } catch {
       return DEFAULT_PREFS;
     }
@@ -164,14 +196,23 @@ export default function App() {
     }
 
     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      const isEn = langRef.current === 'en';
       try {
         new Notification(
           isMajorRo
-            ? `ALERTĂ MAJORĂ ROMÂNIA · M ${ev.magnitude.toFixed(1)} Richter`
+            ? isEn
+              ? `MAJOR ROMANIA ALERT · M ${ev.magnitude.toFixed(1)} Richter`
+              : `ALERTĂ MAJORĂ ROMÂNIA · M ${ev.magnitude.toFixed(1)} Richter`
+            : isEn
+            ? `SEISMIC ALERT M ${ev.magnitude.toFixed(1)} Richter`
             : `ALERTĂ SEISMICĂ M ${ev.magnitude.toFixed(1)} Richter`,
           {
             body: isMajorRo
-              ? `CUTREMUR MAJOR (> 5.5) ÎN ROMÂNIA: ${ev.place} · Adâncime ${ev.depthKm} km · Adăpostiți-vă imediat!`
+              ? isEn
+                ? `MAJOR EARTHQUAKE (> 5.5) IN ROMANIA: ${ev.place} · Depth ${ev.depthKm} km · Take cover immediately!`
+                : `CUTREMUR MAJOR (> 5.5) ÎN ROMÂNIA: ${ev.place} · Adâncime ${ev.depthKm} km · Adăpostiți-vă imediat!`
+              : isEn
+              ? `${ev.place} · Depth ${ev.depthKm} km · MMI ${ev.mmi.toFixed(1)}`
               : `${ev.place} · Adâncime ${ev.depthKm} km · MMI ${ev.mmi.toFixed(1)}`,
             icon: '/pwa-192x192.png',
             tag: isMajorRo ? `ro-major-55-${ev.id}` : `alarm-${ev.id}`,
@@ -278,7 +319,7 @@ export default function App() {
         .then((sub) => {
           if (sub) {
             setPushSubscribed(true);
-            setPushStatusMsg('Dispozitiv înregistrat pentru alerte push în timp real.');
+            setPushStatusMsg(TRANSLATIONS[langRef.current].alerts.pushRegistered);
           }
         })
         .catch(() => {});
@@ -460,6 +501,7 @@ export default function App() {
     // Keep audio unlock synchronous so Notification.requestPermission() stays inside the user gesture!
     unlockAudioSync();
     setAudioArmed(true);
+    const curT = TRANSLATIONS[langRef.current];
 
     let inIframe = false;
     try {
@@ -471,9 +513,7 @@ export default function App() {
     if (!('Notification' in window)) {
       const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
       setPushStatusMsg(
-        isIos
-          ? 'Pe iOS Safari, notificările Push funcționează doar după instalarea pe ecranul principal (Share → Add to Home Screen).'
-          : 'Browserul curent nu suportă API-ul de notificări Push.'
+        isIos ? curT.alerts.pushNotSupportedIos : curT.alerts.pushNotSupported
       );
       return;
     }
@@ -488,15 +528,9 @@ export default function App() {
     }
 
     if (perm !== 'granted') {
-      if (inIframe) {
-        setPushStatusMsg(
-          'Browserul blochează automat permisiunea Push în fereastra de previzualizare (iframe). Apasă butonul „Deschide direct în browser” de mai jos pentru a activa notificările Push.'
-        );
-      } else {
-        setPushStatusMsg(
-          'Notificările sunt blocate în setările browserului pentru acest site. Apasă pe pictograma lacăt/setări din bara de adresă → Permisiuni → Notificări → Permite, apoi reîncarcă pagina.'
-        );
-      }
+      setPushStatusMsg(
+        inIframe ? curT.alerts.pushBlockedIframe : curT.alerts.pushBlockedBrowser
+      );
       return;
     }
 
@@ -522,14 +556,16 @@ export default function App() {
           body: JSON.stringify({ subscription: sub.toJSON(), preferences }),
         });
         setPushSubscribed(true);
-        setPushStatusMsg('Abonare Web Push activă (VAPID) · Prag M ≥ ' + preferences.minMagnitude.toFixed(1));
+        setPushStatusMsg(
+          `${curT.alerts.pushRegistered} (VAPID · M ≥ ${preferences.minMagnitude.toFixed(1)})`
+        );
       } catch {
         setPushSubscribed(true);
-        setPushStatusMsg('Notificări browser activate (mod direct tab).');
+        setPushStatusMsg(curT.alerts.pushRegistered);
       }
     } else {
       setPushSubscribed(true);
-      setPushStatusMsg('Notificări browser activate.');
+      setPushStatusMsg(curT.alerts.pushRegistered);
     }
   };
 
@@ -547,7 +583,7 @@ export default function App() {
       }
     }
     setPushSubscribed(false);
-    setPushStatusMsg('Notificările push au fost dezactivate.');
+    setPushStatusMsg(TRANSLATIONS[langRef.current].alerts.pushDisabledMsg);
   };
 
   const handleJoinChannel = useCallback(
@@ -649,9 +685,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#070B12] text-slate-100 pb-20 md:pb-8">
-      {/* Top Bar Contract: Zone 1 (Wordmark) — Zone 2 (4 single-line links) — Zone 3 (1 primary CTA) */}
+      {/* Top Bar Contract: Zone 1 (Wordmark) — Zone 2 (single-line links) — Zone 3 (RO/EN + primary CTA) */}
       <header className="sticky top-0 z-30 border-b border-slate-800 bg-[#070B12]/95 backdrop-blur-md">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 h-14 flex items-center justify-between gap-8">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 h-14 flex items-center justify-between gap-4 sm:gap-8">
           <button
             type="button"
             onClick={() => setActiveTab('monitor')}
@@ -670,7 +706,7 @@ export default function App() {
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              Monitorizare
+              {t.nav.monitor}
             </button>
             <button
               type="button"
@@ -681,7 +717,7 @@ export default function App() {
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              Hartă &amp; Epicentru
+              {t.nav.map}
             </button>
             <button
               type="button"
@@ -692,7 +728,7 @@ export default function App() {
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              Listă Cutremure
+              {t.nav.list}
             </button>
             <button
               type="button"
@@ -703,7 +739,7 @@ export default function App() {
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              Plan Offline
+              {t.nav.safety}
             </button>
             <button
               type="button"
@@ -714,17 +750,48 @@ export default function App() {
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              Echipe Salvare
+              {t.nav.chat}
             </button>
           </nav>
 
-          <div className="shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
+            <div
+              role="group"
+              aria-label="Language"
+              className="inline-flex items-center rounded-lg border border-slate-800 bg-[#0B111C] p-0.5 text-xs font-mono shrink-0"
+            >
+              <button
+                type="button"
+                onClick={() => setLang('ro')}
+                aria-pressed={lang === 'ro'}
+                className={`rounded-md px-2 py-1 font-semibold transition-colors whitespace-nowrap ${
+                  lang === 'ro'
+                    ? 'bg-slate-800 text-cyan-300'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                RO
+              </button>
+              <button
+                type="button"
+                onClick={() => setLang('en')}
+                aria-pressed={lang === 'en'}
+                className={`rounded-md px-2 py-1 font-semibold transition-colors whitespace-nowrap ${
+                  lang === 'en'
+                    ? 'bg-slate-800 text-cyan-300'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                EN
+              </button>
+            </div>
+
             <button
               type="button"
               onClick={() => setActiveTab('alerts')}
-              className="rounded-lg bg-cyan-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-400 transition-colors whitespace-nowrap shrink-0 min-h-[38px]"
+              className="rounded-lg bg-cyan-500 px-3.5 sm:px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-400 transition-colors whitespace-nowrap shrink-0 min-h-[38px]"
             >
-              Alerte &amp; APK
+              {t.nav.alertsCta}
             </button>
           </div>
         </div>
@@ -742,16 +809,18 @@ export default function App() {
               <div>
                 <div className="text-xs font-mono uppercase tracking-wider text-red-300">
                   {isMajorRomaniaEarthquake(activeAlarm)
-                    ? 'ALERTĂ MAJORĂ ROMÂNIA · M > 5.5 RICHTER · SIRENĂ SPECIFICĂ DE URGENȚĂ ACTIVĂ'
+                    ? t.alarm.majorRoBanner
                     : isRomaniaEarthquake(activeAlarm)
-                    ? 'ALARMĂ SEISMICĂ ACTIVĂ · PRAG ≥ 3.0 RICHTER · ROMÂNIA (AUDIO ACTIV)'
-                    : 'ALARMĂ SEISMICĂ ACTIVĂ · PRAG ≥ 3.0 RICHTER · EXTERN (DOAR VIZUAL, FĂRĂ AUDIO)'}
+                    ? t.alarm.standardRoBanner
+                    : t.alarm.externalBanner}
                 </div>
                 <div className="text-base sm:text-lg font-display font-bold">
                   M {activeAlarm.magnitude.toFixed(1)} Richter — {activeAlarm.place}
                 </div>
                 <div className="text-xs font-mono text-red-200 mt-0.5 tabular-nums">
-                  Adâncime {activeAlarm.depthKm} km · Intensitate estimată MMI {activeAlarm.mmi.toFixed(1)} · Surse: {activeAlarm.sources.join(', ').toUpperCase()}
+                  {t.alarm.depth} {activeAlarm.depthKm} km · {t.alarm.estMmi}{' '}
+                  {activeAlarm.mmi.toFixed(1)} · {t.alarm.sources}:{' '}
+                  {activeAlarm.sources.join(', ').toUpperCase()}
                 </div>
               </div>
             </div>
@@ -766,21 +835,21 @@ export default function App() {
                 className="inline-flex items-center gap-1.5 rounded-lg bg-white px-4 py-2 text-xs font-bold text-red-950 hover:bg-red-100 min-h-[40px]"
               >
                 <VolumeX className="w-4 h-4" />
-                Oprește Alarma Audio
+                {t.alarm.stopAudio}
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('safety')}
                 className="rounded-lg border border-red-400/60 bg-red-900/60 px-3.5 py-2 text-xs font-semibold text-white hover:bg-red-900 min-h-[40px]"
               >
-                Plan Siguranță
+                {t.alarm.safetyPlan}
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('chat')}
                 className="rounded-lg border border-red-400/60 bg-red-900/60 px-3.5 py-2 text-xs font-semibold text-white hover:bg-red-900 min-h-[40px]"
               >
-                Chat Salvare
+                {t.alarm.rescueChat}
               </button>
             </div>
           </div>
@@ -793,14 +862,14 @@ export default function App() {
           <div className="mx-auto max-w-7xl flex items-center justify-between gap-3 text-xs">
             <span className="inline-flex items-center gap-2 font-medium">
               <WifiOff className="w-4 h-4 text-amber-400" />
-              Mod Offline activ — Datele seismice anterioare și Planul de Siguranță Offline rămân disponibile.
+              {t.offline.banner}
             </span>
             <button
               type="button"
               onClick={() => setActiveTab('safety')}
               className="font-semibold underline text-amber-300 whitespace-nowrap"
             >
-              Deschide Plan Offline
+              {t.offline.openPlan}
             </button>
           </div>
         </div>
@@ -808,7 +877,7 @@ export default function App() {
 
       {/* Main Workspace */}
       <main className="mx-auto max-w-7xl px-4 sm:px-6 pt-5 space-y-6">
-        {/* Workspace Control Ribbon (below header, outside Top Bar Contract) */}
+        {/* Workspace Control Ribbon */}
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-[#0B111C] px-4 py-3">
           <div className="flex flex-wrap items-center gap-4 text-xs font-mono tabular-nums text-slate-300">
             <span className="inline-flex items-center gap-2">
@@ -817,15 +886,18 @@ export default function App() {
                   wsConnected ? 'bg-emerald-400' : 'bg-amber-400'
                 }`}
               />
-              <span>{wsConnected ? 'Flux Telemetrie Live' : 'Reconectare Server'}</span>
+              <span>{wsConnected ? t.ribbon.liveTelemetry : t.ribbon.reconnecting}</span>
             </span>
             <span aria-hidden="true" className="text-slate-700">|</span>
             <span>
-              Surse Oficiale: <strong className="text-cyan-400">{onlineSourcesCount}/{sources.length || 6}</strong>
+              {t.ribbon.officialSources}:{' '}
+              <strong className="text-cyan-400">
+                {onlineSourcesCount}/{sources.length || 6}
+              </strong>
             </span>
             <span aria-hidden="true" className="text-slate-700">|</span>
             <span>
-              Prag Alertă: <strong className="text-red-400">≥ 3.0 Richter</strong>
+              {t.ribbon.alertThreshold}: <strong className="text-red-400">≥ 3.0 Richter</strong>
             </span>
           </div>
 
@@ -840,7 +912,7 @@ export default function App() {
               }`}
             >
               <Volume2 className="w-3.5 h-3.5" />
-              {audioArmed ? 'Audio Alarmă Armat' : 'Armează Sunet Alarmă'}
+              {audioArmed ? t.ribbon.audioArmed : t.ribbon.armAudio}
             </button>
 
             <button
@@ -849,7 +921,7 @@ export default function App() {
               className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-500/20 transition-colors min-h-[38px]"
             >
               <Radio className="w-3.5 h-3.5" />
-              Test Alarmă M≥3.0
+              {t.ribbon.testAlarm} M≥3.0
             </button>
 
             <button
@@ -859,11 +931,11 @@ export default function App() {
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-[#070B12] px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white transition-colors min-h-[38px]"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-              Actualizează API
+              {refreshing ? t.ribbon.refreshing : t.ribbon.refreshSources}
             </button>
 
             <div className="hidden sm:block">
-              <PWAInstallButton compact />
+              <PWAInstallButton compact lang={lang} />
             </div>
           </div>
         </div>
@@ -874,22 +946,22 @@ export default function App() {
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
               {/* Row 1: Evenimente Monitorizate + Seisme ≥ 3.0 Richter (România) */}
               <div className="min-w-0 rounded-xl border border-slate-800 bg-[#0B111C] p-3.5 sm:p-4">
-                <div className="text-xs text-slate-400">Evenimente Monitorizate</div>
+                <div className="text-xs text-slate-400">{t.kpi.monitoredEvents}</div>
                 <div className="mt-1 text-xl sm:text-2xl font-mono font-bold tabular-nums text-white">
                   {validEvents.length}
                 </div>
                 <div className="mt-1 text-[11px] sm:text-xs font-mono text-slate-500">
-                  Agregat din 6 fluxuri FDSN/GeoJSON
+                  {t.kpi.monitoredSub}
                 </div>
               </div>
 
               <div className="min-w-0 rounded-xl border border-slate-800 bg-[#0B111C] p-3.5 sm:p-4">
-                <div className="text-xs text-slate-400">Seisme ≥ 3.0 Richter (România)</div>
+                <div className="text-xs text-slate-400">{t.kpi.romaniaQuakes}</div>
                 <div className="mt-1 text-xl sm:text-2xl font-mono font-bold tabular-nums text-red-400">
                   {romaniaEventsCount}
                 </div>
                 <div className="mt-1 text-[11px] sm:text-xs font-mono text-slate-500">
-                  Alertă sonoră activă exclusiv RO
+                  {t.kpi.romaniaSub}
                 </div>
               </div>
 
@@ -901,7 +973,7 @@ export default function App() {
                 }}
                 className="min-w-0 rounded-xl border border-slate-800 bg-[#0B111C] p-3.5 sm:p-4 text-left hover:border-amber-500/40 transition-colors"
               >
-                <div className="text-xs text-slate-400">Magnitudine Maximă Recentă</div>
+                <div className="text-xs text-slate-400">{t.kpi.maxMagnitude}</div>
                 <div className="mt-1 text-xl sm:text-2xl font-mono font-bold tabular-nums text-amber-400">
                   M {maxMagnitudeEvent ? maxMagnitudeEvent.magnitude.toFixed(1) : '0.0'}
                 </div>
@@ -914,7 +986,7 @@ export default function App() {
                       {maxMagnitudeEvent.place}
                     </div>
                     <div className="text-[11px] font-mono tabular-nums text-slate-400">
-                      {new Date(maxMagnitudeEvent.timestamp).toLocaleString('ro-RO', {
+                      {new Date(maxMagnitudeEvent.timestamp).toLocaleString(t.locale, {
                         day: '2-digit',
                         month: '2-digit',
                         year: 'numeric',
@@ -925,16 +997,16 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="mt-1 text-[11px] sm:text-xs font-mono text-slate-500">
-                    Scara Richter / Mw
+                    {t.kpi.maxMagFallback}
                   </div>
                 )}
               </button>
 
               <div className="min-w-0 rounded-xl border border-slate-800 bg-[#0B111C] p-3.5 sm:p-4">
-                <div className="text-xs text-slate-400">Ultima Sincronizare API</div>
+                <div className="text-xs text-slate-400">{t.kpi.lastSync}</div>
                 <div className="mt-1 text-xl sm:text-2xl font-mono font-bold tabular-nums text-cyan-400">
                   {lastPollTime
-                    ? new Date(lastPollTime).toLocaleTimeString('ro-RO', {
+                    ? new Date(lastPollTime).toLocaleTimeString(t.locale, {
                         hour: '2-digit',
                         minute: '2-digit',
                         second: '2-digit',
@@ -942,7 +1014,7 @@ export default function App() {
                     : '--:--:--'}
                 </div>
                 <div className="mt-1 text-[11px] sm:text-xs font-mono text-slate-500">
-                  Polling automat la 25 secunde
+                  {t.kpi.pollingSub}
                 </div>
               </div>
             </div>
@@ -951,6 +1023,7 @@ export default function App() {
             <SeismographCanvas
               activeAlarmMagnitude={activeAlarm?.magnitude ?? null}
               onLocalTremorDetected={handleLocalTremor}
+              lang={lang}
             />
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -962,6 +1035,7 @@ export default function App() {
                   onSelectEvent={setSelectedEvent}
                   userCoords={userCoords}
                   onRequestLocation={handleRequestLocation}
+                  lang={lang}
                 />
               </div>
 
@@ -969,14 +1043,14 @@ export default function App() {
               <div className="lg:col-span-5 rounded-xl border border-slate-800 bg-[#0B111C] overflow-hidden">
                 <div className="border-b border-slate-800 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
                   <h2 className="text-sm font-display font-semibold text-white">
-                    Flux Evenimente (M ≥ 3.0)
+                    {t.feed.title}
                   </h2>
                   <div className="flex items-center gap-1 rounded-lg bg-[#070B12] p-1 border border-slate-800">
                     {(
                       [
-                        { id: 'all', label: 'Toate' },
-                        { id: 'romania', label: 'România' },
-                        { id: '45plus', label: 'M ≥ 4.5' },
+                        { id: 'all', label: t.feed.all },
+                        { id: 'romania', label: t.feed.romania },
+                        { id: '45plus', label: t.feed.m45Plus },
                       ] as const
                     ).map((f) => (
                       <button
@@ -998,7 +1072,7 @@ export default function App() {
                 <div className="divide-y divide-slate-800/80 max-h-[480px] overflow-y-auto">
                   {filteredEvents.length === 0 ? (
                     <div className="p-8 text-center text-sm text-slate-500">
-                      Nu există cutremure M ≥ 3.0 pentru filtrul selectat.
+                      {t.feed.empty}
                     </div>
                   ) : (
                     filteredEvents.slice(0, 40).map((ev) => {
@@ -1018,7 +1092,7 @@ export default function App() {
                             </div>
                             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-mono text-slate-400 tabular-nums">
                               <span>
-                                {new Date(ev.timestamp).toLocaleString('ro-RO', {
+                                {new Date(ev.timestamp).toLocaleString(t.locale, {
                                   day: '2-digit',
                                   month: '2-digit',
                                   hour: '2-digit',
@@ -1063,11 +1137,9 @@ export default function App() {
               <div className="border-b border-slate-800 px-4 py-3 flex items-center justify-between gap-2">
                 <div>
                   <h2 className="text-sm font-display font-semibold text-white">
-                    Surse Oficiale de Monitorizare Geologică Integrate
+                    {t.sourcesTable.title}
                   </h2>
-                  <p className="text-xs text-slate-400">
-                    Deduplicare multi-agenție și coroborare automată în timp real
-                  </p>
+                  <p className="text-xs text-slate-400">{t.sourcesTable.subtitle}</p>
                 </div>
               </div>
 
@@ -1075,11 +1147,15 @@ export default function App() {
                 <table className="w-full text-left text-xs">
                   <thead className="border-b border-slate-800 bg-[#070B12] text-slate-400 font-mono">
                     <tr>
-                      <th className="px-4 py-2.5 font-medium">Agenție / Rețea</th>
-                      <th className="px-4 py-2.5 font-medium">Acoperire</th>
-                      <th className="px-4 py-2.5 font-medium">Stare</th>
-                      <th className="px-4 py-2.5 font-medium text-right">Evenimente</th>
-                      <th className="px-4 py-2.5 font-medium text-right">Latență</th>
+                      <th className="px-4 py-2.5 font-medium">{t.sourcesTable.agency}</th>
+                      <th className="px-4 py-2.5 font-medium">{t.sourcesTable.coverage}</th>
+                      <th className="px-4 py-2.5 font-medium">{t.sourcesTable.status}</th>
+                      <th className="px-4 py-2.5 font-medium text-right">
+                        {t.sourcesTable.events}
+                      </th>
+                      <th className="px-4 py-2.5 font-medium text-right">
+                        {t.sourcesTable.latency}
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/70">
@@ -1098,10 +1174,10 @@ export default function App() {
                             }
                           >
                             {src.status === 'online'
-                              ? '● Activ'
+                              ? t.sourcesTable.online
                               : src.status === 'degraded'
-                              ? '▲ Parțial'
-                              : '✖ Indisponibil'}
+                              ? t.sourcesTable.degraded
+                              : t.sourcesTable.offline}
                           </span>
                         </td>
                         <td className="px-4 py-2.5 text-right font-mono tabular-nums text-slate-200">
@@ -1126,6 +1202,7 @@ export default function App() {
             onSelectEvent={setSelectedEvent}
             userCoords={userCoords}
             onRequestLocation={handleRequestLocation}
+            lang={lang}
           />
         )}
 
@@ -1137,10 +1214,11 @@ export default function App() {
               setSelectedEvent(ev);
               setActiveTab('map');
             }}
+            lang={lang}
           />
         )}
 
-        {activeTab === 'safety' && <SafetyPlanView />}
+        {activeTab === 'safety' && <SafetyPlanView lang={lang} />}
 
         {activeTab === 'chat' && (
           <RescueChatView
@@ -1151,6 +1229,7 @@ export default function App() {
             onJoinChannel={handleJoinChannel}
             onSendMessage={handleSendMessage}
             onRequestLocation={handleRequestLocation}
+            lang={lang}
           />
         )}
 
@@ -1165,13 +1244,14 @@ export default function App() {
             onTestAlarm={handleTestAlarm}
             onRequestLocation={handleRequestLocation}
             userCoords={userCoords}
+            lang={lang}
           />
         )}
       </main>
 
-      {/* Mobile Bottom Navigation Bar (< 15% mobile viewport height) */}
+      {/* Mobile Bottom Navigation Bar */}
       <nav
-        aria-label="Navigare mobil"
+        aria-label={lang === 'en' ? 'Mobile navigation' : 'Navigare mobil'}
         className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-slate-800 bg-[#070B12]/95 backdrop-blur-md pb-safe"
       >
         <div className="grid grid-cols-5 h-16 items-center">
@@ -1183,7 +1263,7 @@ export default function App() {
             }`}
           >
             <Activity className="w-5 h-5" />
-            <span className="text-[10px] font-medium mt-1">Monitor</span>
+            <span className="text-[10px] font-medium mt-1">{t.nav.mobileMonitor}</span>
           </button>
           <button
             type="button"
@@ -1193,7 +1273,7 @@ export default function App() {
             }`}
           >
             <MapIcon className="w-5 h-5" />
-            <span className="text-[10px] font-medium mt-1">Hartă</span>
+            <span className="text-[10px] font-medium mt-1">{t.nav.mobileMap}</span>
           </button>
           <button
             type="button"
@@ -1203,7 +1283,7 @@ export default function App() {
             }`}
           >
             <List className="w-5 h-5" />
-            <span className="text-[10px] font-medium mt-1">Listă</span>
+            <span className="text-[10px] font-medium mt-1">{t.nav.mobileList}</span>
           </button>
           <button
             type="button"
@@ -1213,7 +1293,7 @@ export default function App() {
             }`}
           >
             <ShieldAlert className="w-5 h-5" />
-            <span className="text-[10px] font-medium mt-1">Offline</span>
+            <span className="text-[10px] font-medium mt-1">{t.nav.mobileSafety}</span>
           </button>
           <button
             type="button"
@@ -1223,7 +1303,7 @@ export default function App() {
             }`}
           >
             <MessageSquare className="w-5 h-5" />
-            <span className="text-[10px] font-medium mt-1">Salvare</span>
+            <span className="text-[10px] font-medium mt-1">{t.nav.mobileChat}</span>
           </button>
         </div>
       </nav>

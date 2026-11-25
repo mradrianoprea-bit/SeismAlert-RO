@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { MapPin, Send, Shield, Users } from 'lucide-react';
+import { TRANSLATIONS, type Language } from '../i18n/translations';
 import type {
   RescueChannelId,
   RescueMessage,
@@ -22,13 +23,21 @@ interface RescueChatViewProps {
     coords: { lat: number; lon: number } | null;
   }) => void;
   onRequestLocation: () => void;
+  lang?: Language;
 }
 
-const CHANNELS: Array<{ id: RescueChannelId; label: string; desc: string }> = [
+const CHANNELS_RO: Array<{ id: RescueChannelId; label: string; desc: string }> = [
   { id: 'general', label: 'Coordonare Generală', desc: 'Alerte M ≥ 3.0 și situație națională' },
   { id: 'vrancea', label: 'Zona Vrancea / Est', desc: 'Monitorizare & intervenție sector Est' },
   { id: 'medical', label: 'Medical & Triaj', desc: 'Echipaje SMURD, ambulanță, prim ajutor' },
   { id: 'logistica', label: 'Logistică & Adăposturi', desc: 'Puncte de adunare, apă, energie' },
+];
+
+const CHANNELS_EN: Array<{ id: RescueChannelId; label: string; desc: string }> = [
+  { id: 'general', label: 'General Coordination', desc: 'M ≥ 3.0 alerts & national status' },
+  { id: 'vrancea', label: 'Vrancea / East Zone', desc: 'Eastern sector monitoring & dispatch' },
+  { id: 'medical', label: 'Medical & Triage', desc: 'SMURD, ambulance & first-aid teams' },
+  { id: 'logistica', label: 'Logistics & Shelters', desc: 'Assembly points, water & power' },
 ];
 
 const ROLES: RescueRole[] = [
@@ -39,6 +48,14 @@ const ROLES: RescueRole[] = [
   'Dispecerat',
 ];
 
+const ROLE_LABELS_EN: Record<RescueRole, string> = {
+  'Cetățean': 'Citizen',
+  'Echipaj ISU': 'Fire & Rescue (ISU)',
+  'Medic SMURD': 'Paramedic (SMURD)',
+  Voluntar: 'Volunteer',
+  Dispecerat: 'Dispatch',
+};
+
 export const RescueChatView: React.FC<RescueChatViewProps> = ({
   messages,
   activeUsers,
@@ -47,7 +64,12 @@ export const RescueChatView: React.FC<RescueChatViewProps> = ({
   onJoinChannel,
   onSendMessage,
   onRequestLocation,
+  lang = 'ro',
 }) => {
+  const t = TRANSLATIONS[lang];
+  const isEn = lang === 'en';
+  const channels = isEn ? CHANNELS_EN : CHANNELS_RO;
+
   const [channel, setChannel] = useState<RescueChannelId>('general');
   const [senderName, setSenderName] = useState<string>(() => {
     try {
@@ -109,7 +131,7 @@ export const RescueChatView: React.FC<RescueChatViewProps> = ({
         <div className="rounded-xl border border-slate-800 bg-[#0B111C] p-4">
           <div className="flex items-center justify-between gap-2 mb-3">
             <h3 className="text-sm font-display font-semibold text-white">
-              Canale Coordonare Salvare
+              {t.chat.channelsTitle}
             </h3>
             <span className="inline-flex items-center gap-1.5 text-xs font-mono">
               <span
@@ -118,13 +140,13 @@ export const RescueChatView: React.FC<RescueChatViewProps> = ({
                 }`}
               />
               <span className={wsConnected ? 'text-emerald-400' : 'text-amber-400'}>
-                {wsConnected ? 'Conectat Live' : 'Reconectare'}
+                {wsConnected ? (isEn ? 'Live' : 'Conectat Live') : t.chat.reconnecting}
               </span>
             </span>
           </div>
 
           <div className="space-y-1.5">
-            {CHANNELS.map((c) => {
+            {channels.map((c) => {
               const count = messages.filter((m) => m.channel === c.id).length;
               return (
                 <button
@@ -152,23 +174,24 @@ export const RescueChatView: React.FC<RescueChatViewProps> = ({
         <div className="rounded-xl border border-slate-800 bg-[#0B111C] p-4 space-y-3">
           <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
             <Shield className="w-3.5 h-3.5 text-cyan-400" />
-            <span>IDENTITATE OPERATOR / CETĂȚEAN</span>
+            <span>{isEn ? 'OPERATOR / CITIZEN IDENTITY' : 'IDENTITATE OPERATOR / CETĂȚEAN'}</span>
           </div>
           <div>
             <label htmlFor="chat-name" className="block text-xs text-slate-400 mb-1">
-              Nume afișat
+              {isEn ? 'Display name' : 'Nume afișat'}
             </label>
             <input
               id="chat-name"
               type="text"
               value={senderName}
               onChange={(e) => setSenderName(e.target.value)}
+              placeholder={t.chat.namePlaceholder}
               className="w-full rounded-lg border border-slate-800 bg-[#070B12] px-3 py-2 text-sm text-slate-100 focus:border-cyan-500 focus:outline-none min-h-[40px]"
             />
           </div>
           <div>
             <label htmlFor="chat-role" className="block text-xs text-slate-400 mb-1">
-              Rol operațional
+              {isEn ? 'Operational role' : 'Rol operațional'}
             </label>
             <select
               id="chat-role"
@@ -178,7 +201,7 @@ export const RescueChatView: React.FC<RescueChatViewProps> = ({
             >
               {ROLES.map((r) => (
                 <option key={r} value={r}>
-                  {r}
+                  {isEn ? ROLE_LABELS_EN[r] : r}
                 </option>
               ))}
             </select>
@@ -186,7 +209,7 @@ export const RescueChatView: React.FC<RescueChatViewProps> = ({
           <div className="border-t border-slate-800 pt-2.5 flex items-center justify-between text-xs text-slate-400">
             <span className="inline-flex items-center gap-1.5">
               <Users className="w-3.5 h-3.5 text-cyan-400" />
-              Echipaje conectate acum
+              {isEn ? 'Connected teams online' : 'Echipaje conectate acum'}
             </span>
             <span className="font-mono tabular-nums text-slate-200 font-semibold">
               {activeUsers.length}
@@ -200,27 +223,39 @@ export const RescueChatView: React.FC<RescueChatViewProps> = ({
         <div className="border-b border-slate-800 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="text-sm font-semibold text-white">
-              {CHANNELS.find((c) => c.id === channel)?.label}
+              {channels.find((c) => c.id === channel)?.label}
             </h3>
-            <p className="text-xs text-slate-400">
-              Sincronizare WebSocket în timp real cu toate terminalele conectate
-            </p>
+            <p className="text-xs text-slate-400">{t.chat.subtitle}</p>
           </div>
 
           <div className="flex flex-wrap gap-1.5">
             <button
               type="button"
-              onClick={() => sendQuickStatus('Sunt în siguranță — zonă verificată.', 'normal')}
+              onClick={() =>
+                sendQuickStatus(
+                  isEn
+                    ? 'I am safe — area checked.'
+                    : 'Sunt în siguranță — zonă verificată.',
+                  'normal'
+                )
+              }
               className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 min-h-[34px]"
             >
-              Sunt în siguranță
+              {isEn ? 'I am Safe' : 'Sunt în siguranță'}
             </button>
             <button
               type="button"
-              onClick={() => sendQuickStatus('NECESIT ASISTENȚĂ / EVACUARE URGENTĂ!', 'sos')}
+              onClick={() =>
+                sendQuickStatus(
+                  isEn
+                    ? 'NEED URGENT ASSISTANCE / EVACUATION!'
+                    : 'NECESIT ASISTENȚĂ / EVACUARE URGENTĂ!',
+                  'sos'
+                )
+              }
               className="rounded-lg border border-red-500/50 bg-red-500/15 px-2.5 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-500/25 min-h-[34px]"
             >
-              SOS Asistență
+              {isEn ? 'SOS Assistance' : 'SOS Asistență'}
             </button>
           </div>
         </div>
@@ -228,7 +263,7 @@ export const RescueChatView: React.FC<RescueChatViewProps> = ({
         <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[420px]">
           {channelMessages.length === 0 ? (
             <div className="py-12 text-center text-sm text-slate-500">
-              Niciun mesaj în acest canal. Transmiteți primul raport de stare.
+              {t.chat.emptyChannel}
             </div>
           ) : (
             channelMessages.map((m) => (
@@ -246,7 +281,11 @@ export const RescueChatView: React.FC<RescueChatViewProps> = ({
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-white">{m.senderName}</span>
                     <span aria-hidden="true" className="text-slate-600">·</span>
-                    <span className="text-cyan-400">{m.senderRole}</span>
+                    <span className="text-cyan-400">
+                      {isEn && ROLE_LABELS_EN[m.senderRole]
+                        ? ROLE_LABELS_EN[m.senderRole]
+                        : m.senderRole}
+                    </span>
                     {m.urgency !== 'normal' && (
                       <>
                         <span aria-hidden="true" className="text-slate-600">·</span>
@@ -255,13 +294,17 @@ export const RescueChatView: React.FC<RescueChatViewProps> = ({
                             m.urgency === 'sos' ? 'text-red-400' : 'text-amber-400'
                           }`}
                         >
-                          {m.urgency === 'sos' ? 'SOS CRITIC' : 'URGENT'}
+                          {m.urgency === 'sos'
+                            ? isEn
+                              ? 'CRITICAL SOS'
+                              : 'SOS CRITIC'
+                            : 'URGENT'}
                         </span>
                       </>
                     )}
                   </div>
                   <span className="font-mono tabular-nums text-slate-500">
-                    {new Date(m.timestamp).toLocaleTimeString('ro-RO', {
+                    {new Date(m.timestamp).toLocaleTimeString(t.locale, {
                       hour: '2-digit',
                       minute: '2-digit',
                       second: '2-digit',
@@ -284,7 +327,10 @@ export const RescueChatView: React.FC<RescueChatViewProps> = ({
         </div>
 
         {/* Composer */}
-        <form onSubmit={handleSubmit} className="border-t border-slate-800 p-3.5 bg-[#070B12] space-y-2.5">
+        <form
+          onSubmit={handleSubmit}
+          className="border-t border-slate-800 p-3.5 bg-[#070B12] space-y-2.5"
+        >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
               {(['normal', 'urgent', 'sos'] as const).map((lvl) => (
@@ -302,7 +348,11 @@ export const RescueChatView: React.FC<RescueChatViewProps> = ({
                       : 'bg-slate-900 text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  {lvl === 'normal' ? 'Normal' : lvl === 'urgent' ? 'Urgent' : 'SOS'}
+                  {lvl === 'normal'
+                    ? t.chat.urgencyNormal
+                    : lvl === 'urgent'
+                    ? t.chat.urgencyUrgent
+                    : 'SOS'}
                 </button>
               ))}
             </div>
@@ -320,7 +370,7 @@ export const RescueChatView: React.FC<RescueChatViewProps> = ({
               }`}
             >
               <MapPin className="w-3.5 h-3.5" />
-              {includeCoords && userCoords ? 'Coordonate GPS Atașate' : 'Atașează GPS'}
+              {includeCoords && userCoords ? t.chat.gpsAttached : t.chat.attachGps}
             </button>
           </div>
 
@@ -329,7 +379,7 @@ export const RescueChatView: React.FC<RescueChatViewProps> = ({
               type="text"
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="Transmite mesaj către echipajele de salvare..."
+              placeholder={t.chat.messagePlaceholder}
               className="flex-1 rounded-lg border border-slate-800 bg-[#0B111C] px-3.5 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none min-h-[44px]"
             />
             <button
@@ -337,7 +387,7 @@ export const RescueChatView: React.FC<RescueChatViewProps> = ({
               className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-cyan-400 transition-colors min-h-[44px] whitespace-nowrap"
             >
               <Send className="w-4 h-4" />
-              Trimite
+              {t.chat.send}
             </button>
           </div>
         </form>

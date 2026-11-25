@@ -29,7 +29,16 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PORT = Number(process.env.PORT || 3000);
+function resolvePort(): number {
+  const portFlagIdx = process.argv.indexOf('--port');
+  if (portFlagIdx !== -1 && process.argv[portFlagIdx + 1]) {
+    const cliPort = Number(process.argv[portFlagIdx + 1]);
+    if (!Number.isNaN(cliPort) && cliPort > 0) return cliPort;
+  }
+  return Number(process.env.PORT || 3000);
+}
+
+const PORT = resolvePort();
 const ALERT_THRESHOLD_RICHTER = 3.0;
 const POLL_INTERVAL_MS = 25_000;
 
@@ -927,6 +936,26 @@ async function startServer() {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   } else {
+    // Self-unregister any stale Workbox sw.js / dev-sw.js in dev preview so browsers never serve stale HTML/asset hashes
+    const clearStaleSwScript = [
+      "self.addEventListener('install', () => self.skipWaiting());",
+      "self.addEventListener('activate', (event) => {",
+      '  event.waitUntil(',
+      '    caches.keys()',
+      '      .then((keys) => Promise.all(keys.map((k) => caches.delete(k))))',
+      '      .then(() => self.registration.unregister())',
+      '      .then(() => self.clients.matchAll({ type: "window" }))',
+      '      .then((clients) => clients.forEach((c) => { try { c.navigate(c.url); } catch {} }))',
+      '  );',
+      '});',
+    ].join('\n');
+
+    app.get(['/sw.js', '/dev-sw.js'], (_req, res) => {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+      res.send(clearStaleSwScript);
+    });
+
     app.get('/manifest.webmanifest', (_req, res) => {
       res.setHeader('Content-Type', 'application/manifest+json');
       res.json({

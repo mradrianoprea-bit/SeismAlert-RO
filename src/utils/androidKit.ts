@@ -89,6 +89,14 @@ export function buildAndroidKitZip(rawHostUrl: string): JSZip {
       'chmod +x BUILD_IOS.sh && ./BUILD_IOS.sh',
       '```',
       '',
+      '---',
+      '',
+      '## English Quickstart (GitHub + Android APK + iOS IPA)',
+      '- Push all files (including `.github/workflows/`) to GitHub and open the **Actions** tab.',
+      '- Workflows use `npm install --no-audit --no-fund` (no `package-lock.json` required) to build:',
+      '  - **`SeismAlert-RO-signed-apk`** (`ubuntu-latest`) — signed Android APK with native `ro_major_quake_55` alarm channel and `ro_major_quake_siren.wav` for Romania M > 5.5 quakes.',
+      '  - **`SeismAlert-RO-ios-ipa`** (`macos-14`) — iOS IPA with `AppDelegate.swift`, `Info.plist` background modes, and bundled `ro_major_quake_siren.wav` (sideload via AltStore / Sideloadly / Xcode, or sign for TestFlight / App Store).',
+      '',
     ].join('\n')
   );
 
