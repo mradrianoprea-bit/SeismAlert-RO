@@ -12,7 +12,7 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['icon.svg', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png', 'pwa-maskable-512x512.png', 'sw-push.js', 'sounds/ro-standard-quake-30.wav', 'sounds/ro-major-quake-55.wav'],
+        includeAssets: ['favicon.ico', 'icon.svg', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png', 'pwa-maskable-512x512.png', 'sw-push.js', 'sounds/ro-standard-quake-30.wav', 'sounds/ro-major-quake-55.wav'],
         manifest: {
           id: '/',
           name: 'SeismAlert RO — Avertizare Seismică',
