@@ -1,0 +1,6 @@
+{
+  "name": "SeismAlert RO",
+  "description": "Sistem de avertizare seismică timpurie (M ≥ 3.0 Richter), hartă interactivă a epicentrelor și intensității, alerte audio și push în timp real, plan de siguranță offline și chat de coordonare pentru echipele de salvare.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

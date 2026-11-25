@@ -1,11 +1,29 @@
-<div align="center">
+# SeismAlert RO — Monitorizare Seismică, Alerte Push, Android APK & iOS IPA
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+Sistem de monitorizare și avertizare seismică în timp real pentru evenimente **M ≥ 3.0 Richter**, cu surse geologice oficiale multiple (USGS, EMSC, Rețeaua Seismică România / INFP via EMSC, GFZ Potsdam, INGV Italia, GeoNet NZ), hartă interactivă fără API key, plan de siguranță offline, chat în timp real pentru echipele de salvare și suport complet mobil (PWA, Android APK și iOS IPA).
 
-  <h1>Built with AI Studio</h2>
+## Funcționalități principale
+- **Alertare exclusivă România**: alarmă sonoră standard pentru `M 3.0–5.5` și **sirenă civil-defense distinctă (`ro_major_quake_siren.wav`)** pentru cutremure majore din România **`M > 5.5`**.
+- **Hartă interactivă fără API key**: straturi Esri ArcGIS Dark Gray / Topo / Satelit + OpenStreetMap prin proxy.
+- **Listă completă cutremure (`M ≥ 3.0`)**: ordonată descrescător în timp, cu data și ora separate pe două rânduri.
+- **Plan de siguranță offline** + fluier SOS `3.1 kHz` + semnalizare vizuală Morse.
+- **Chat coordonare echipe salvare** în timp real prin WebSocket.
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+## Rulare locală (Web / Server)
+```bash
+npm install
+npm run dev
+```
+Serverul pornește pe `http://localhost:3000`.
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+## Compilare automată pe GitHub (Android APK + iOS IPA)
+Acest repository include workflow-ul **`.github/workflows/build-mobile.yml`**:
+1. Încarcă proiectul pe GitHub (sau folosește kitul descărcabil din aplicație din secțiunea **Alerte & APK**).
+2. Deschide tab-ul **Actions** → **SeismAlert RO — Web CI, Android APK & iOS IPA** → **Run workflow**.
+3. La final poți descărca direct din secțiunea **Artifacts**:
+   - **`SeismAlert-RO-signed-apk`** — `SeismAlert-RO-signed.apk` (cu canal nativ `ro_major_quake_55` și `res/raw/ro_major_quake_siren.wav` pentru alertă sonoră în fundal la M > 5.5 România).
+   - **`SeismAlert-RO-ios-ipa`** — `SeismAlert-RO-unsigned.ipa` (cu `AppDelegate.swift`, permisiuni `Info.plist` și `ro_major_quake_siren.wav` în bundle, instalabil pe iPhone prin AltStore / Sideloadly sau Xcode; pentru TestFlight/App Store semnează cu cont Apple Developer).
 
-</div>
+## Instalare directă pe iPhone / Android fără compilare (PWA)
+- **iPhone (Safari)**: Deschide URL-ul aplicației → butonul **Share** → **Add to Home Screen**.
+- **Android (Chrome)**: Deschide URL-ul aplicației → **Instalează Aplicația**.

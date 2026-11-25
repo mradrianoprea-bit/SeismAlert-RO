@@ -1,0 +1,119 @@
+name: SeismAlert RO — Web CI, Android APK & iOS IPA
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: 'URL-ul public al serverului SeismAlert RO (pentru aplicația mobilă)'
+        required: false
+        default: 'https://ais-pre-2evfwmdwwoetsu73uknkcb-967278542405.europe-west2.run.app'
+  push:
+    branches: [main]
+
+jobs:
+  web-check:
+    name: Web TypeScript & Production Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  build-android-apk:
+    name: Build Signed Android APK
+    needs: web-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install dependencies & extract Capacitor mobile kit
+        run: |
+          npm ci
+          APP_URL="${{ inputs.app_url || vars.APP_URL || 'https://ais-pre-2evfwmdwwoetsu73uknkcb-967278542405.europe-west2.run.app' }}"
+          npx tsx -e "
+            import fs from 'fs';
+            import path from 'path';
+            import { buildAndroidKitZip } from './src/utils/androidKit.ts';
+            const zip = buildAndroidKitZip(process.env.APP_URL);
+            const outDir = 'mobile-kit-out';
+            fs.mkdirSync(outDir, { recursive: true });
+            for (const [relPath, entry] of Object.entries(zip.files)) {
+              const target = path.join(outDir, relPath);
+              if (entry.dir) {
+                fs.mkdirSync(target, { recursive: true });
+              } else {
+                fs.mkdirSync(path.dirname(target), { recursive: true });
+                const content = await entry.async('nodebuffer');
+                fs.writeFileSync(target, content);
+              }
+            }
+          "
+        env:
+          APP_URL: ${{ inputs.app_url || vars.APP_URL || 'https://ais-pre-2evfwmdwwoetsu73uknkcb-967278542405.europe-west2.run.app' }}
+      - name: Compile & Sign Android APK
+        working-directory: mobile-kit-out
+        run: |
+          chmod +x BUILD_SIGNED_APK.sh
+          ./BUILD_SIGNED_APK.sh
+      - name: Upload Signed Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SeismAlert-RO-signed-apk
+          path: mobile-kit-out/SeismAlert-RO-signed.apk
+
+  build-ios-ipa:
+    name: Build iOS IPA (Xcode macOS)
+    needs: web-check
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies & extract Capacitor mobile kit
+        run: |
+          npm ci
+          npx tsx -e "
+            import fs from 'fs';
+            import path from 'path';
+            import { buildAndroidKitZip } from './src/utils/androidKit.ts';
+            const zip = buildAndroidKitZip(process.env.APP_URL);
+            const outDir = 'mobile-kit-out';
+            fs.mkdirSync(outDir, { recursive: true });
+            for (const [relPath, entry] of Object.entries(zip.files)) {
+              const target = path.join(outDir, relPath);
+              if (entry.dir) {
+                fs.mkdirSync(target, { recursive: true });
+              } else {
+                fs.mkdirSync(path.dirname(target), { recursive: true });
+                const content = await entry.async('nodebuffer');
+                fs.writeFileSync(target, content);
+              }
+            }
+          "
+        env:
+          APP_URL: ${{ inputs.app_url || vars.APP_URL || 'https://ais-pre-2evfwmdwwoetsu73uknkcb-967278542405.europe-west2.run.app' }}
+      - name: Compile iOS IPA
+        working-directory: mobile-kit-out
+        run: |
+          chmod +x BUILD_IOS.sh
+          ./BUILD_IOS.sh
+      - name: Upload iOS IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: SeismAlert-RO-ios-ipa
+          path: mobile-kit-out/SeismAlert-RO-unsigned.ipa
