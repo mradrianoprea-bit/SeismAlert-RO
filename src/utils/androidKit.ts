@@ -119,39 +119,36 @@ export function buildAndroidKitZip(rawHostUrl: string): JSZip {
   );
 
   zip.file(
-    'capacitor.config.ts',
-    [
-      "import type { CapacitorConfig } from '@capacitor/cli';",
-      '',
-      'const config: CapacitorConfig = {',
-      "  appId: 'ro.seismalert.app',",
-      "  appName: 'SeismAlert RO',",
-      "  webDir: 'dist',",
-      '  server: {',
-      `    url: '${hostUrl}',`,
-      '    cleartext: false,',
-      "    androidScheme: 'https',",
-      '  },',
-      '  ios: {',
-      "    contentInset: 'automatic',",
-      "    backgroundColor: '#070B12',",
-      "    preferredContentMode: 'mobile',",
-      '  },',
-      '  plugins: {',
-      '    PushNotifications: {',
-      "      presentationOptions: ['badge', 'sound', 'alert'],",
-      '    },',
-      '    LocalNotifications: {',
-      "      smallIcon: 'ic_stat_seismic',",
-      "      iconColor: '#EF4444',",
-      "      sound: 'ro_major_quake_siren.wav',",
-      '    },',
-      '  },',
-      '};',
-      '',
-      'export default config;',
-      '',
-    ].join('\n')
+    'capacitor.config.json',
+    JSON.stringify(
+      {
+        appId: 'ro.seismalert.app',
+        appName: 'SeismAlert RO',
+        webDir: 'dist',
+        server: {
+          url: hostUrl,
+          cleartext: false,
+          androidScheme: 'https',
+        },
+        ios: {
+          contentInset: 'automatic',
+          backgroundColor: '#070B12',
+          preferredContentMode: 'mobile',
+        },
+        plugins: {
+          PushNotifications: {
+            presentationOptions: ['badge', 'sound', 'alert'],
+          },
+          LocalNotifications: {
+            smallIcon: 'ic_stat_seismic',
+            iconColor: '#EF4444',
+            sound: 'ro_major_quake_siren.wav',
+          },
+        },
+      },
+      null,
+      2
+    ) + '\n'
   );
 
   zip.file(
