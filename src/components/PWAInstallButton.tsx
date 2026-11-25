@@ -119,10 +119,6 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
                       Tap the top-right menu <strong>⋮</strong> and select{' '}
                       <strong>Install app</strong> / <strong>Add to Home screen</strong>.
                     </li>
-                    <li>
-                      For a native signed <strong>.APK</strong> or <strong>.IPA</strong>, download
-                      the GitHub + Capacitor kit from the <strong>Alerts &amp; APK</strong> tab.
-                    </li>
                   </>
                 ) : (
                   <>
@@ -132,10 +128,6 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
                     <li>
                       Apăsați meniul <strong>⋮</strong> din dreapta sus și selectați{' '}
                       <strong>Instalează aplicația</strong> / <strong>Add to Home Screen</strong>.
-                    </li>
-                    <li>
-                      Pentru compilare <strong>.APK / .IPA nativ</strong>, descărcați pachetul
-                      Capacitor din secțiunea <strong>Alerte &amp; APK</strong>.
                     </li>
                   </>
                 )}

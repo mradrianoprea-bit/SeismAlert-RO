@@ -18,7 +18,7 @@ Serverul pornește pe `http://localhost:3000`.
 
 ## Compilare automată pe GitHub (Android APK + iOS IPA)
 Acest repository include workflow-ul **`.github/workflows/build-mobile.yml`**:
-1. Încarcă proiectul pe GitHub (sau folosește kitul descărcabil din aplicație din secțiunea **Alerte & APK**).
+1. Încarcă proiectul pe GitHub (`main`).
 2. Deschide tab-ul **Actions** → **SeismAlert RO — Web CI, Android APK & iOS IPA** → **Run workflow**.
 3. La final poți descărca direct din secțiunea **Artifacts**:
    - **`SeismAlert-RO-signed-apk`** — `SeismAlert-RO-signed.apk` (cu canal nativ `ro_major_quake_55` și `res/raw/ro_major_quake_siren.wav` pentru alertă sonoră în fundal la M > 5.5 România).

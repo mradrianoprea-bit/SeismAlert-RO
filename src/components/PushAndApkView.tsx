@@ -2,14 +2,12 @@ import React, { useState } from 'react';
 import {
   Bell,
   BellOff,
-  Download,
   ExternalLink,
-  FileArchive,
   MapPin,
+  ShieldCheck,
   Smartphone,
   Volume2,
 } from 'lucide-react';
-import { buildAndroidKitZip } from '../utils/androidKit';
 import { PWAInstallButton } from './PWAInstallButton';
 import { TRANSLATIONS, type Language } from '../i18n/translations';
 import type { PushPreference } from '../types/seismic';
@@ -43,7 +41,6 @@ export const PushAndApkView: React.FC<PushAndApkViewProps> = ({
   const isEn = lang === 'en';
   const [testMag, setTestMag] = useState(4.8);
   const [busyPush, setBusyPush] = useState(false);
-  const [downloadingKit, setDownloadingKit] = useState(false);
 
   const isInIframe = (() => {
     try {
@@ -62,51 +59,6 @@ export const PushAndApkView: React.FC<PushAndApkViewProps> = ({
     typeof window !== 'undefined'
       ? `${window.location.origin}/?tab=alerts&lang=${lang}`
       : `/?tab=alerts&lang=${lang}`;
-
-  const handleDownloadAndroidKit = async () => {
-    setDownloadingKit(true);
-    try {
-      let blob: Blob | null = null;
-      try {
-        const res = await fetch('/api/android-kit', { cache: 'no-store' });
-        if (res.ok) {
-          const buf = await res.arrayBuffer();
-          const bytes = new Uint8Array(buf);
-          if (
-            bytes.length > 22 &&
-            bytes[0] === 0x50 &&
-            bytes[1] === 0x4b &&
-            bytes[2] === 0x03 &&
-            bytes[3] === 0x04
-          ) {
-            blob = new Blob([buf], { type: 'application/zip' });
-          }
-        }
-      } catch {
-        // Fallback to client-side JSZip below
-      }
-
-      if (!blob) {
-        const zip = buildAndroidKitZip(window.location.origin);
-        blob = await zip.generateAsync({
-          type: 'blob',
-          compression: 'DEFLATE',
-          compressionOptions: { level: 6 },
-        });
-      }
-
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'seismalert-ro-mobile-github-kit.zip';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 3000);
-    } finally {
-      setDownloadingKit(false);
-    }
-  };
 
   const handleTogglePush = async () => {
     setBusyPush(true);
@@ -281,12 +233,8 @@ export const PushAndApkView: React.FC<PushAndApkViewProps> = ({
                   aria-label={isEn ? 'Test magnitude' : 'Magnitudine test'}
                   className="rounded-lg border border-slate-800 bg-[#070B12] px-2.5 py-2 text-xs font-mono text-slate-200 min-h-[40px]"
                 >
-                  <option value={3.2}>
-                    {isEn ? 'M 3.2 (Standard RO)' : 'M 3.2 (Standard RO)'}
-                  </option>
-                  <option value={4.8}>
-                    {isEn ? 'M 4.8 (Standard RO)' : 'M 4.8 (Standard RO)'}
-                  </option>
+                  <option value={3.2}>M 3.2 (Standard RO)</option>
+                  <option value={4.8}>M 4.8 (Standard RO)</option>
                   <option value={5.8}>
                     {isEn ? 'M 5.8 (Major RO Siren > 5.5)' : 'M 5.8 (Sirenă Majoră RO > 5.5)'}
                   </option>
@@ -320,7 +268,7 @@ export const PushAndApkView: React.FC<PushAndApkViewProps> = ({
           </div>
         </div>
 
-        {/* Mobile Installation (PWA) + GitHub / Android APK / iOS IPA Kit */}
+        {/* Direct Mobile Installation (PWA) & Background Alert Info */}
         <div className="rounded-xl border border-slate-800 bg-[#0B111C] p-5 flex flex-col justify-between gap-5">
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-xs font-mono text-cyan-400">
@@ -336,25 +284,18 @@ export const PushAndApkView: React.FC<PushAndApkViewProps> = ({
               <PWAInstallButton lang={lang} />
             </div>
 
-            <div className="rounded-lg border border-slate-800 bg-[#070B12] p-4 space-y-3">
-              <div className="text-xs font-semibold text-slate-200">{t.alerts.opt2Title}</div>
+            <div className="rounded-lg border border-slate-800 bg-[#070B12] p-4 space-y-2.5">
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-200">
+                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{t.alerts.opt2Title}</span>
+              </div>
               <p className="text-xs text-slate-400 leading-relaxed">{t.alerts.opt2Desc}</p>
-              <button
-                type="button"
-                disabled={downloadingKit}
-                onClick={() => void handleDownloadAndroidKit()}
-                className="inline-flex items-center gap-2 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-4 py-2.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20 transition-colors min-h-[42px]"
-              >
-                <FileArchive className="w-4 h-4" />
-                {downloadingKit ? t.alerts.downloadingZip : t.alerts.downloadZipBtn}
-                <Download className="w-3.5 h-3.5" />
-              </button>
             </div>
           </div>
 
           <div className="border-t border-slate-800 pt-3 text-xs font-mono text-slate-500 flex flex-wrap justify-between gap-2">
             <span>App ID: ro.seismalert.app</span>
-            <span>Android APK (Ubuntu) + iOS IPA (macOS-14)</span>
+            <span>PWA · Android &amp; iOS Ready</span>
           </div>
         </div>
       </div>

@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install dependencies
         run: npm install --no-audit --no-fund
       - name: TypeScript Lint
@@ -34,7 +34,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -47,19 +47,21 @@ jobs:
             import fs from 'fs';
             import path from 'path';
             import { buildAndroidKitZip } from './src/utils/androidKit.ts';
-            const zip = buildAndroidKitZip(process.env.APP_URL || 'https://ais-pre-2evfwmdwwoetsu73uknkcb-967278542405.europe-west2.run.app');
-            const outDir = 'mobile-kit-out';
-            fs.mkdirSync(outDir, { recursive: true });
-            for (const [relPath, entry] of Object.entries(zip.files)) {
-              const target = path.join(outDir, relPath);
-              if (entry.dir) {
-                fs.mkdirSync(target, { recursive: true });
-              } else {
-                fs.mkdirSync(path.dirname(target), { recursive: true });
-                const content = await entry.async('nodebuffer');
-                fs.writeFileSync(target, content);
+            (async () => {
+              const zip = buildAndroidKitZip(process.env.APP_URL || 'https://ais-pre-2evfwmdwwoetsu73uknkcb-967278542405.europe-west2.run.app');
+              const outDir = 'mobile-kit-out';
+              fs.mkdirSync(outDir, { recursive: true });
+              for (const [relPath, entry] of Object.entries(zip.files)) {
+                const target = path.join(outDir, relPath);
+                if (entry.dir) {
+                  fs.mkdirSync(target, { recursive: true });
+                } else {
+                  fs.mkdirSync(path.dirname(target), { recursive: true });
+                  const content = await entry.async('nodebuffer');
+                  fs.writeFileSync(target, content);
+                }
               }
-            }
+            })();
           "
         env:
           APP_URL: ${{ inputs.app_url || vars.APP_URL || 'https://ais-pre-2evfwmdwwoetsu73uknkcb-967278542405.europe-west2.run.app' }}
@@ -82,7 +84,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install dependencies & extract Capacitor mobile kit
         run: |
           npm install --no-audit --no-fund
@@ -90,19 +92,21 @@ jobs:
             import fs from 'fs';
             import path from 'path';
             import { buildAndroidKitZip } from './src/utils/androidKit.ts';
-            const zip = buildAndroidKitZip(process.env.APP_URL || 'https://ais-pre-2evfwmdwwoetsu73uknkcb-967278542405.europe-west2.run.app');
-            const outDir = 'mobile-kit-out';
-            fs.mkdirSync(outDir, { recursive: true });
-            for (const [relPath, entry] of Object.entries(zip.files)) {
-              const target = path.join(outDir, relPath);
-              if (entry.dir) {
-                fs.mkdirSync(target, { recursive: true });
-              } else {
-                fs.mkdirSync(path.dirname(target), { recursive: true });
-                const content = await entry.async('nodebuffer');
-                fs.writeFileSync(target, content);
+            (async () => {
+              const zip = buildAndroidKitZip(process.env.APP_URL || 'https://ais-pre-2evfwmdwwoetsu73uknkcb-967278542405.europe-west2.run.app');
+              const outDir = 'mobile-kit-out';
+              fs.mkdirSync(outDir, { recursive: true });
+              for (const [relPath, entry] of Object.entries(zip.files)) {
+                const target = path.join(outDir, relPath);
+                if (entry.dir) {
+                  fs.mkdirSync(target, { recursive: true });
+                } else {
+                  fs.mkdirSync(path.dirname(target), { recursive: true });
+                  const content = await entry.async('nodebuffer');
+                  fs.writeFileSync(target, content);
+                }
               }
-            }
+            })();
           "
         env:
           APP_URL: ${{ inputs.app_url || vars.APP_URL || 'https://ais-pre-2evfwmdwwoetsu73uknkcb-967278542405.europe-west2.run.app' }}
